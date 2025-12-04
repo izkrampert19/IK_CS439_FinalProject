@@ -1,9 +1,11 @@
-import pyreadr
+import pandas as pd
+import os
+import numpy as np
 
-result = pyreadr.read_r("data/raw/StanfordOpenPolicing/yg821jf8611_ct_statewide_2020_04_01.rds")
+path = "../data/raw/StanfordOpenPolicing/nc_statewide_2020_04_01.csv"
 
-df = result[None]
+df = pd.read_csv(path, nrows=5)
+print(df)
 
-print(df.head())
-print(df.sample(1))
-print(df.columns)
+for col in df.columns:
+    print(col)
