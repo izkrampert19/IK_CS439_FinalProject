@@ -2,13 +2,9 @@ import pandas as pd
 import os
 import glob
 
-PATH = "../data/raw/StanfordOpenPolicing/co_statewide_2020_04_01.csv"
+PATH = "../data/raw/StanfordOpenPolicing/*.csv"
 YEAR = 2014
 SAMPLE_SIZE = 300_000
-
-"""df = pd.read_csv(PATH)
-print(df['subject_sex'].value_counts())"""
-
 
 # Function to group ages
 def age_group(age):
@@ -26,15 +22,19 @@ def age_group(age):
     else:                       # Senior
         return "65+"
 
-# Standardizing race categories -- NOT including "unkown" or "other"
+# Standardizing race categories
 RACE_MAP = {
     "white": "White",
     "black": "Black",
-    "asian/pacific islander": "Asian/Pacific Islander"
+    "asian/pacific islander": "Asian/Pacific Islander",
+    "hispanic": "Hispanic"
+
+    # Note: I did not include "unkown" or "other" because these categories are ambiguous, and
+    # don't contribute to analyzing disparities between specific races!
 }
 
 # Standardizing sex categories
-# Note: "male" or "female", but in case of different entries include "m" and "f"
+# Note: "male" or "female", but in case of different entried I included "m" and "f"
 SEX_MAP = {
     "male": "Male",
     "female": "Female",
@@ -42,8 +42,11 @@ SEX_MAP = {
     "f": "Female"
 }
 
+VALID_RACES = set(RACE_MAP.values())
+VALID_SEXES = {"Male", "Female"}
 
-""" CLEANING SCRIPT BELOW """
+
+""" CLEANING PORTION BELOW """
 
 all_states_df = []
 
@@ -59,7 +62,7 @@ for file_path in glob.glob(PATH):
     df = df.dropna(subset=["subject_race", "subject_sex", "subject_age", "date"])
 
     # Obtain year from original "date" column
-    df["Year"] = pd.to_datetime(df["date"], errors="coerce".dt.year)
+    df["Year"] = pd.to_datetime(df["date"], errors="coerce").dt.year
     df = df[df["Year"] == YEAR]
 
     # Standardizing race and sex
@@ -68,12 +71,14 @@ for file_path in glob.glob(PATH):
         .str.lower()
         .map(RACE_MAP)
     )
+    df = df[df["Driver_Race"].isin(VALID_RACES)]
 
     df["Driver_Sex"] = (
         df["subject_sex"]
         .str.lower()
         .map(SEX_MAP)
     )
+    df = df[df["Driver_Sex"].isin(VALID_SEXES)]
 
     # Creating age groups
     df["Driver_Age_Group"] = df["subject_age"].apply(age_group)
@@ -95,7 +100,7 @@ for file_path in glob.glob(PATH):
 
     all_states_df.append(df)
 
-# Merging all the states
+# Merging all the states, and saving to CSV
 df_final = pd.concat(all_states_df, ignore_index=True)
 
-df_final.to_csv("data/processed/cleaned.csv")
+df_final.to_csv("data/processed/cleaned.csv", index=False)
