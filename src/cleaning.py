@@ -56,7 +56,7 @@ for file_path in glob.glob(PATH):
     print(f"\nProcessing {state}")
 
     # Load in CSV
-    df = pd.read_csv(file_path)
+    df = pd.read_csv(file_path, low_memory=False)
 
     # Drop null values for key fields
     df = df.dropna(subset=["subject_race", "subject_sex", "subject_age", "date"])
@@ -103,4 +103,4 @@ for file_path in glob.glob(PATH):
 # Merging all the states, and saving to CSV
 df_final = pd.concat(all_states_df, ignore_index=True)
 
-df_final.to_csv("data/processed/cleaned.csv", index=False)
+df_final.to_csv("../data/processed/cleaned.csv", index=False)
