@@ -2,9 +2,10 @@ import pandas as pd
 import os
 import glob
 
+
 PATH = "../data/raw/StanfordOpenPolicing/*.csv"
 YEAR = 2014
-SAMPLE_SIZE = 300_000
+SAMPLE_SIZE = 50_000
 
 # Function to group ages
 def age_group(age):
