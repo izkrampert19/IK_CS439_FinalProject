@@ -30,7 +30,7 @@ CENSUS_MAPPINGS = {
 
 # --- Load the cleaned data of people who were stopped ---
 # Returns a dataframe called "df_stopped" that adds a "Stopped" column.
-def load_SOP_data(filepath='.../data/processed/cleaned.csv'):
+def load_SOP_data(filepath='../data/processed/cleaned.csv'):
     df_stopped = pd.read_csv(filepath)
 
     # Add indicator for stopped entries
@@ -39,7 +39,7 @@ def load_SOP_data(filepath='.../data/processed/cleaned.csv'):
 
 # --- Load the census data for our baseline ---
 # Returns a dataframe called "df_census".
-def load_USBC_data(filepath='.../data/processed/sc-est2019-alldata5_TRIMMED.csv'):
+def load_USBC_data(filepath='../data/processed/sc-est2019-alldata5_TRIMMED.csv'):
     df_census = pd.read_csv(filepath)
 
     # Mapping the numeric codes to the labels
@@ -77,7 +77,7 @@ def create_age_groups(age):
 
 # --- Mapping the baseline data to the stop data ---
 # Because the Stanford Open Project classifies "Hispanic" as a racial category while 
-# the US Census Bureau does not, automatically mark any race of hispanic origin from
+# the US Census Bureau does not, we have to mark any race of Hispanic origin from the
 # USCB set as "Hispanic", regardless of race.
 def map_USCB_SOP(census_race, origin_label):
 
@@ -88,87 +88,101 @@ def map_USCB_SOP(census_race, origin_label):
         'White Alone or in Combination': 'White',
         'Black Alone or in Combination': 'Black',
         'American Indian and Alaska Native Alone or in Combination': None,      # Excluded from SOP data
-        'Asian Alone or in Combiation': 'Asian/Pacific Islander', 
+        'Asian Alone or in Combination': 'Asian/Pacific Islander', 
         'Native Hawaiian and Other Pacific Islander Alone or in Combination': 'Asian/Pacific Islander'
     }
 
     return race_mapping.get(census_race)
 
-# --- Obtaining stratified samples from the USCB data ---
-def sample_USBC(df_census, n_samples=50000, random_state = 42):
+# --- Generating stratified, synthetic samples based the USCB data ---
+# Because the USCB rows are totals and not individuals, we have to generate a synthetic dataset
+# for our model 
+def generate_sample_USBC(df_census_state, n_target, state_name):
+    
+    df = df_census_state.copy()
 
-    # Creating the age groups
-    df_census['Age_Group'] = df_census['AGE'].apply(create_age_groups)
-
-    # Mapping the race and origin categories from Census to Stanford
-    df_census['Mapped_Race'] = df_census.apply(
+    # Create age groups and mapped race
+    df['Age_Group'] = df['AGE'].apply(create_age_groups)
+    df['Mapped_Race'] = df.apply(
         lambda row: map_USCB_SOP(row['Race_Label'], row['Origin_Label']),
         axis=1
     )
 
-    # Removing the rows that do not have valid mappings
-    df_census = df_census[
-        df_census['Age_Group'].notna() & df_census['Mapped_Race'].notna()
+    # Dropping any rows that are invalid
+    df = df[
+        df['Age_Group'].notna() &
+        df['Mapped_Race'].notna()
     ].copy()
 
-    # --- Creating the weighted sample ---
-    sampled_rows = []
-    total_population = df_census['POPESTIMATE2014'].sum()
+    total_population = df['POPESTIMATE2014'].sum()
 
-    for _, row in df_census.iterrows():
+    rows = []
 
-        # Now, we ave to calculate how many individuals to sample from this particular demographic group
+    for _, row in df.iterrows():
+
         prop = row['POPESTIMATE2014'] / total_population
-        n_to_sample = max(1, int(prop * n_samples))
+        n_to_sample = max(1, int(prop * n_target))
 
-        for _ in range(n_to_sample):
-            sampled_rows.append({
-                'Driver_Race': row['Mapped_Race'],
-                'Driver_Age_Group': row['Age_Group'],
-                'Driver_Sex': row['Sex_Label'],
-                'State': 'Census', # *********
-                'Year': 2014,       # Every entry will have this...maybe remove
-                'Stopped': 0
-            })
+        person_df = pd.DataFrame({
+            'Driver_Race': [row['Mapped_Race']] * n_to_sample,
+            'Driver_Age_Group': [row['Age_Group']] * n_to_sample,
+            'Driver_Sex': [row['Sex_Label']] * n_to_sample,
+            'State': [state_name] * n_to_sample,
+            'Year':[2014] * n_to_sample,
+            'Stopped': [0] * n_to_sample
+        })
+        rows.append(person_df)
 
-    df_baseline = pd.DataFrame(sampled_rows)
+    baseline = pd.concat(rows, ignore_index=True)
 
-    # !! If we somehow oversample, we reduce to the exact size by cutting random entries.
-    if len(df_baseline) > n_samples:
+    # Trim if we accidentally overshoot
+    if len(baseline) > n_target:
+        baseline = baseline.sample(n=n_target, random_state=42)
 
-        df_baseline = df_baseline.sample(
-            n=n_samples, 
-            random_state=random_state
-        )
+    return baseline
 
-    return df_baseline
-
-# --- Merging the datasets ---
+# --- Merging the stopped and baseline datasets ---
 def merge_datasets(df_stopped, df_baseline):
 
-    # Make sure both have columns in this order
-    columns = ['Driver_Race', 'Driver_Age_Group', 'Driver_Sex', 'State', 'Year', 'Stopped']
-    df_stopped = df_stopped[columns]
-    df_baseline = df_baseline[columns]
+    cols = ['Driver_Race', 'Driver_Age_Group', 'Driver_Sex', 'State', 'Year', 'Stopped']
 
-    df_merged = pd.concat([df_stopped, df_baseline], ignore_index=True)
+    df_s = df_stopped[cols].copy()
+    df_b = df_baseline[cols].copy()
+
+    df_merged = pd.concat([df_s, df_b], ignore_index=True)
 
     return df_merged
 
+# --- Main execution ---
+if __name__ == '__main__':
 
-# --- Main execition ---
-# Creates a merged dataset to train the Logistic Regression and Naive Bayes Models
-if __name__ == "__main__":
+    # Load datasets in
+    df_stopped = load_SOP_data()
+    df_census = load_USBC_data()
 
-    # Loading in our processed datasets
-    df_stopped = load_SOP_data('../data/processed/cleaned.csv')
-    df_census = load_USBC_data('../data/processed/sc-est2019-alldata5_TRIMMED.csv')
+    # To hold synthetic baselines for each state
+    all_baselines = []
 
-    # Getting our sample of individuals who weren't stopped / our baseline
-    df_baseline = sample_USBC(df_census, n_samples=50000)
+    states = df_stopped['State'].unique()
 
-    # Merging our datasets into one
+    for st in states:
+
+       df_st = df_stopped[df_stopped['State']==st]
+       n_stopped = len(df_st)
+       
+       df_census_state = df_census[df_census['NAME'].notna()]
+
+       baseline_st = generate_sample_USBC(df_census_state, n_target=n_stopped, state_name=st)
+       all_baselines.append(baseline_st)
+    
+    # combining all the baseline samples
+    df_baseline = pd.concat(all_baselines, ignore_index=True)
+
+    # finally, merging the stopped and baseline dfs
     df_merged = merge_datasets(df_stopped, df_baseline)
 
-    # Finally, it's ready to use for training -- save to CSV
-    df_merged.to_csv('../data/processed/merged_data.csv', index=False)
+    # save to processed folder
+    df_merged.to_csv('../data/processed/training_data.csv', index=False)
+
+    # Print finished message
+    print("Merged dataset saved to ../data/processed/training_data.csv")
