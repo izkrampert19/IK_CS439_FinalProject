@@ -1,0 +1,44 @@
+--- Terminal Output ---
+This was outputted in the terminal after I ran model_analysis.py. It shows the performance of both models
+and outputs the best performing model (Logistic Regression)
+---------------------------------------------------------------------------------------------------------
+
+Logistic Regression:
+  Accuracy:  0.6196
+  Precision: 0.6317
+  Recall:    0.5735
+  F1 Score:  0.6012
+  ROC-AUC:   0.6637
+
+Naive Bayes:
+  Accuracy:  0.6112
+  Precision: 0.6021
+  Recall:    0.6558
+  F1 Score:  0.6278
+  ROC-AUC:   0.6481
+
+Best performing model: Logistic Regression
+
+Analysis:
+
+By Race:
+                        Predicted_Stop_Rate   Count  Actual_Stop_Rate  Avg_Probability  NB_Predicted_Rate
+Driver_Race
+Asian/Pacific Islander               0.0000   29817            0.2082           0.3101             0.0000
+Black                                0.1943   79387            0.5547           0.3890             0.0000
+Hispanic                             0.3166   87295            0.2492           0.4466             0.3771
+White                                0.5451  503501            0.5521           0.5380             0.6924
+
+By Age Group:
+                  Predicted_Stop_Rate   Count  Actual_Stop_Rate  Avg_Probability  NB_Predicted_Rate
+Driver_Age_Group
+25-39                          0.8549  193496            0.6526           0.6111             0.7752
+40-64                          0.5143  239113            0.5183           0.5378             0.5143
+65+                            0.3924   74148            0.2429           0.4432             0.4637
+Under 25                       0.0000  193243            0.4232           0.3636             0.3838
+
+By Sex:
+            Predicted_Stop_Rate   Count  Actual_Stop_Rate  Avg_Probability  NB_Predicted_Rate
+Driver_Sex
+Female                   0.1790  293894            0.3954           0.3951             0.1790
+Male                     0.6523  406106            0.5757           0.5759             0.8099
