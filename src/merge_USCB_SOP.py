@@ -29,7 +29,6 @@ CENSUS_MAPPINGS = {
 
 
 # --- Load the cleaned data of people who were stopped ---
-# Returns a dataframe called "df_stopped" that adds a "Stopped" column.
 def load_SOP_data(filepath='../data/processed/cleaned.csv'):
     df_stopped = pd.read_csv(filepath)
 
@@ -38,7 +37,6 @@ def load_SOP_data(filepath='../data/processed/cleaned.csv'):
     return df_stopped
 
 # --- Load the census data for our baseline ---
-# Returns a dataframe called "df_census".
 def load_USBC_data(filepath='../data/processed/sc-est2019-alldata5_TRIMMED.csv'):
     df_census = pd.read_csv(filepath)
 
