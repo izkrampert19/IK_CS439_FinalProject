@@ -3,6 +3,8 @@
 Python script that generates a CSV showing the prediction data for 
 each demographic, and a PNG with 4 plots comparing the performance by both models.
 
+It also prints out analysis results directly into the terminal.
+
 Run this file after running model_training.py -- it relies on previously
 trained models to construct the fairness_analysis CSV and the model_comparison.png
 
@@ -31,6 +33,8 @@ def load_models_and_data(load_dir='../models/'):
     with open(f'{load_dir}training_data.pkl', 'rb') as f:
         training_data = pickle.load(f)
     
+    print("Models Loaded!")
+
     return (logreg_model, nb_model, 
             training_data['X_train'], training_data['X_test'],
             training_data['y_train'], training_data['y_test'],
@@ -40,7 +44,7 @@ def load_models_and_data(load_dir='../models/'):
 # --- Model evaluation ---
 # Store everything into a results set, to be returned and used in plot comparison
 def evaluate_models(logreg_model, nb_model, X_test, y_test):
-
+    
     results = {}
     
     for model_name, model in [('Logistic Regression', logreg_model), ('Naive Bayes', nb_model)]:
@@ -77,12 +81,13 @@ def evaluate_models(logreg_model, nb_model, X_test, y_test):
         print(f"  F1 Score:  {f1:.4f}")
         print(f"  ROC-AUC:   {roc_auc:.4f}")
     
+    print("Finished Obtaining Model Results!")
     return results
 
 # --- Creating PNG with plots ---
 # shows ROC Curves, Performance Metrics, and Confusion Matrices for both Models
 def compare_plots(results, y_test, save_path='../results/model_comparison.png'):
-    
+
     # Title
     fig, axes = plt.subplots(2, 2, figsize=(15, 12))
     fig.suptitle('Traffic Stop Prediction Model Comparison', fontsize=16, fontweight='bold')
@@ -127,7 +132,7 @@ def compare_plots(results, y_test, save_path='../results/model_comparison.png'):
     # --- Formatting 3rd Plot ---
     # Logistic Regression confusion matrix, BOTTOM LEFT of PNG
     sns.heatmap(results['Logistic Regression']['confusion_matrix'], 
-               annot=True, fmt=',', cmap='Blues', ax=axes[1, 0],
+               annot=True, fmt='d', cmap='Blues', ax=axes[1, 0],
                xticklabels=['Not Stopped', 'Stopped'],
                yticklabels=['Not Stopped', 'Stopped'],
                cbar_kws={'label': 'Count'})
@@ -138,7 +143,7 @@ def compare_plots(results, y_test, save_path='../results/model_comparison.png'):
     # --- Formatting 4th Plot ---
     # Naive Bayes confusion matrix, BOTTOM RIGHT of PNG
     sns.heatmap(results['Naive Bayes']['confusion_matrix'], 
-               annot=True, fmt=',', cmap='Purples', ax=axes[1, 1],
+               annot=True, fmt='d', cmap='Purples', ax=axes[1, 1],
                xticklabels=['Not Stopped', 'Stopped'],
                yticklabels=['Not Stopped', 'Stopped'],
                cbar_kws={'label': 'Count'})
@@ -147,21 +152,10 @@ def compare_plots(results, y_test, save_path='../results/model_comparison.png'):
     axes[1, 1].set_xlabel('Predicted Label', fontweight='bold')
     
     # Finalize and save our plots
+    print("PNG Generated to directory ../results/model_comparison.png !")
     plt.tight_layout()
     plt.savefig(save_path, dpi=300, bbox_inches='tight')
-    plt.close()
-
-# -- Analyze features of the logistic regression model ---
-# This info is printed out in the terminal
-def feature_analysis(logreg_model, feature_names):
-    coefficients = logreg_model.coef_[0]
-    
-    print(f"\n{'Feature':<20} {'Coefficient':<12} {'Odds Ratio':<12}")
-    
-    for i, feature in enumerate(feature_names):
-        coef = coefficients[i]
-        odds_ratio = np.exp(coef)
-        print(f"{feature:<20} {coef:>11.4f} {odds_ratio:>11.4f}")
+    plt.close(fig)
 
 # --- Generate the fairness analysis CSV ---
 # To use as a visual when looking at demographic prediction data
@@ -213,7 +207,8 @@ def fairness_analysis(logreg_model, nb_model, df_original, feature_names, label_
     ])
     
     fairness_report.to_csv(save_path, index=False)
-    
+    print("Demographic Fairness Analysis CSV Saved to ../results/fairness_analysis.csv ! ")
+    print("Analysis:")
     print("\nBy Race:")
     print(race_analysis)
     print("\nBy Age Group:")
@@ -234,10 +229,19 @@ if __name__ == "__main__":
     # Comparing model performance, and printing the best one in terminal
     logreg_auc = results['Logistic Regression']['roc_auc']
     nb_auc = results['Naive Bayes']['roc_auc']
-    best_model = 'Logistic Regression' if logreg_auc > nb_auc else 'Naive Bayes' if nb_auc > logreg_auc else 'Tie'
+
+    if logreg_auc > nb_auc:
+        best_model = 'Logistic Regression'
+    elif nb_auc > logreg_auc:
+        best_model = 'Naive Bayes'
+    else:
+        best_model = 'Tie'
+
     print(f"\nBest performing model: {best_model}")
     
     # Generating data visuals + printing results
     compare_plots(results, y_test)
-    feature_analysis(logreg_model, feature_names)
     fairness_analysis(logreg_model, nb_model, df_original, feature_names, label_encoders)
+    
+    # Done message
+    print("Finished running model_analysis.py !")
